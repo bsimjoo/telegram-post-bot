@@ -1,2 +1,2 @@
-# tg-post-bot
-Telegram Post bot - A bot to send your posts to any subscribe
+# Telegram Post bot
+tg-post-bot - A bot to send your posts to any subscribe
