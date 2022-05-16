@@ -1,2 +1,4 @@
 # Telegram Post bot
-tg-post-bot - A bot to send your posts to any subscribe
+A bot to send your posts to subscribers
+
+This bot could feed posts from any Website, Weblog, RSS and ...
