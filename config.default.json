@@ -1,5 +1,6 @@
 {
     "token": "TOKEN",
     "proxy_url": null,
-    "log-level": "info"
+    "log-level": "info",
+    "database": "database.sqlite"
 }
