@@ -1,13 +1,13 @@
 import logging
-from turtle import title
-from decorators import HandlersDecorator, Auth
 import json
+import importlib
 from peewee import *
 from logging.handlers import TimedRotatingFileHandler
 from telegram import *
 from telegram.ext import Updater, Handler, CallbackContext
 from colored_log import ColoredLog
 from os.path import exists, join as path_join
+from decorators import HandlersDecorator, Auth
 
 # Configure logger
 CONFIG_FILE = "config.json" if exists("config.json") else "config.default.json"
@@ -72,9 +72,25 @@ if not db_exists:
     db.create_tables([Admin, Chat, BotData])
 
 # ===========================
-# Telegram Bot
+# Parser plugins
 # ===========================
+cfg_parser = config['parser']
+logger.info("Loading parser (%s) plugin...", cfg_parser)
+parser_config = config['parser-config']
+parser_module = importlib.import_module(path_join('plugins', cfg_parser, 'main'))
+parser_db_table = parser_module.db_table
+logger.info("initlizing parser database...")
+parser_module.db_proxy.initialize(db)
+parser_module.db_proxy.connect()
+if not db.table_exists(parser_db_table):
+    parser_module.db_proxy.create_tables([parser_db_table])
+logger.info("initlizing parser...")
+parser = parser_module.Parser(parser_config)
 
+# ===========================
+# Telegram Post Bot
+# https://github.com/bsimjoo/telegram-post-bot
+# ===========================
 if 'proxy-url' in config:
     updater = Updater(token=config['token'], use_context=True, request_kwargs={'proxy_url': config['proxy-url']})
 else:
