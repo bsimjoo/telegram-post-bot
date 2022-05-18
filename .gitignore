@@ -131,3 +131,5 @@ dmypy.json
 #custom
 vscode/
 config.json
+*.sqlite
+*.db
