@@ -45,7 +45,7 @@ class Admin(Model):
     class Meta:
         database = db
 
-class Chat(Model):
+class Chatdb(Model):
     id = IntegerField(unique=True)
     type = CharField(null=True)
     title = CharField(null=True)
@@ -69,7 +69,7 @@ class BotData(Model):
 
 db.connect()
 if not db_exists:
-    db.create_tables([Admin, Chat, BotData])
+    db.create_tables([Admin, Chatdb, BotData])
 
 # ===========================
 # Parser plugins
@@ -112,20 +112,20 @@ def start(update: Update, context: CallbackContext):
             update.message.reply_text("You are now a super admin.")
         #TODO: add admins registration
     
-    q = Chat.select().where(Chat.id == chat.id)
+    q = Chatdb.select().where(Chatdb.id == chat.id)
     if q.exists():
         update.message.reply_text("You are already registered.")        #TODO: configurable messages
         return
     
     update.message.reply_text("You are now registered.")
     members_count = chat.get_member_count()
-    Chat.create(id=chat.id, type=chat.type, title=chat.title, username=chat.username, first_name=chat.first_name, last_name=chat.last_name, members_count=members_count-1)  # -1 for bot
+    Chatdb.create(id=chat.id, type=chat.type, title=chat.title, username=chat.username, first_name=chat.first_name, last_name=chat.last_name, members_count=members_count-1)  # -1 for bot
 
 @decorators.CommandHandler
-@Auth(admins_list)
+@Auth(admins_list)      # sending this method to keep this authorization up to date
 def members_count(update: Update, context: CallbackContext):
-    chats_count = Chat.select().count()
-    total_count = sum(chat.members_count for chat in Chat.select())
+    chats_count = Chatdb.select().count()
+    total_count = sum(chat.members_count for chat in Chatdb.select())
     update.message.reply_text("There are {} chats and {} members in total.".format(chats_count, total_count))
 
 #TODO: remove this test message handler
