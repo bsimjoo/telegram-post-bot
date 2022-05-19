@@ -1,26 +1,28 @@
 # RSS reader plugin for telegram post bot
 from peewee import *
 from plugins.parser.model import *
+from logging import getLogger
 
-db_proxy = DatabaseProxy()
 class RSS_reader_Data(Model):
     last_post_date = DateTimeField(null=True)
 
     class Meta:
-        database = db_proxy
+        database = DatabaseProxy()
         db_table = 'rss_reader_data'
-
-db_table = RSS_reader_Data
 
 class Parser(ParserModel):
     def __init__(self, config):
+        super().__init__(config, RSS_reader_Data)
+        self.logger = getLogger('RSS-reader')
+
+    @property
+    def db_table(self):
+        return RSS_reader_Data
+
+    def new_posts(self):
+        self.logger.info("Getting new posts...")
         ...
 
-class main:
-    
-    class db(Model):
+    def last_post(self):
+        self.logger.info("Getting last post...")
         ...
-
-    class Parser(ParserModel):
-        def __init__(self, config):
-            ...
