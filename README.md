@@ -1,5 +1,5 @@
 # Telegram Post bot
-##### The best Telegram bot to share posts in telegram for subscribers
+##### The best Telegram bot to share your posts for subscribers in Telegram
 
 ## Overview
 Telegram-post-bot is an advanced telegram bot that will send the latest post(s) from a source (different parser plugins offer different sources) and tries to render and send messages to subscribers in the best way it could!
