@@ -22,7 +22,7 @@ class TextMessage(Message):
 class PhotoMessage(Message):
     CAPTION_MAX_LENGTH = 200
     photo: str
-    caption: str = None
+    text: str = None
     parse_mode: str = ParseMode.MARKDOWN
     inline_keyboard: Iterable[Iterable[dict]] | Iterable[Iterable[InlineKeyboardButton]] = None
     disable_notification: bool = False
