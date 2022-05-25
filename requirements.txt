@@ -1,2 +1,4 @@
 python-telegram-bot
 peewee
+feedparser
+bs4
