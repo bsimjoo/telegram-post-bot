@@ -5,6 +5,7 @@ from plugins.parser.model import *
 from logging import getLogger
 import feedparser
 from bs4 import BeautifulSoup
+from telegram import ParseMode
 
 class RSS_reader_Data(Model):
     last_post_date = DateTimeField(null=True)
@@ -57,9 +58,32 @@ class Parser(ParserModel):
 
     def render_post(self, post) -> iterable[Message]:
         messages = []
+        first = True
         for content in post.content:
             if content.type == 'text/html':
-                ...
+                body = self.purge_html(content.value)
+                medias = []
+                medias = body.find_all('img')+body.find_all('video')
+                if medias:
+                    before, after = None, str(body)
+
+                    for media in medias:
+                        split_by = str(media)
+                        link = None
+                        if media.parent.name == 'a':
+                            split_by = str(media.parent)
+                            link = media.parent['href']
+                        before,after = after.split(split_by,1)
+                        if before:
+                            if first:
+                                messages.append(TextMessage(before,ParseMode.HTML))
+                                first = False
+                            else:
+                                messages[-1].text = before
+                        if link:
+                            messages.append(PhotoMessage(media['src'], parse_mode=ParseMode.HTML, inline_keyboard=[[InlineKeyboardButton('Open image link',url=link)]]))
+                        else:
+                            messages.append(PhotoMessage(media['src'], parse_mode=ParseMode.HTML))
 
     def purge_html(self, html):
         """
@@ -68,9 +92,9 @@ class Parser(ParserModel):
 
         soup = BeautifulSoup(html, 'html.parser')
         self.logger.debug('purging html...')
-        return ''.join(self.__purge_tag_rec(soup.contents))
+        return BeautifulSoup(''.join(self.__purge_tag_rec(soup.contents)), 'html.parser')
 
-    def __purge_tag_rec(self,children):
+    def __purge_tag_rec(self, children):
         self.logger.debug('children: %s',repr(children))
         for tag in children:
             self.logger.debug('checking tag: %s',repr(tag))
@@ -89,7 +113,7 @@ class Parser(ParserModel):
                 self.logger.debug('not changing: %s',tag.string)
         return children
 
-    def summary(self):
+    def summarize(self):
         ...
 
     def last_post(self):
