@@ -59,8 +59,6 @@ class Chatdb(Model):
         database = db
 
 class BotData(Model):
-    source = CharField()
-    latest_post_date = DateTimeField(null=True)
     interval = IntegerField(default=0)
     super_admin_id = IntegerField(null=True)
 
@@ -88,8 +86,7 @@ logger.info("initlizing parser...")
 parser = parser_module.Parser(parser_config)
 
 # ===========================
-# Telegram Post Bot
-# https://github.com/bsimjoo/telegram-post-bot
+# Telegram Bot
 # ===========================
 if 'proxy-url' in config:
     updater = Updater(token=config['token'], use_context=True, request_kwargs={'proxy_url': config['proxy-url']})
