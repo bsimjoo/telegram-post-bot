@@ -75,7 +75,7 @@ if not db_exists:
 cfg_parser = config['parser']
 logger.info("Loading parser (%s) plugin...", cfg_parser)
 parser_config = config['parser-config']
-parser_module = importlib.import_module(path_join('plugins', cfg_parser, 'main'))
+parser_module = importlib.import_module(path_join('plugins', cfg_parser, 'plugin'))
 parser_db_table = parser_module.db_table
 logger.info("initlizing parser database...")
 parser_module.db_proxy.initialize(db)
