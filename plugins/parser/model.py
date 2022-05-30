@@ -6,12 +6,14 @@ from typing import Iterable
 from abc import ABC, abstractmethod, abstractproperty
 from telegram import InlineKeyboardButton,ParseMode
 
+
+
 class Message:
     pass
 
 @dataclass
 class TextMessage(Message):
-    TEXT_MAX_LENGTH = 4096
+    MAX_LENGTH = 4096
     text: str
     parse_mode: str = ParseMode.MARKDOWN
     inline_keyboard: Iterable[Iterable[dict]] | Iterable[Iterable[InlineKeyboardButton]] = None
@@ -20,7 +22,7 @@ class TextMessage(Message):
 
 @dataclass
 class PhotoMessage(Message):
-    CAPTION_MAX_LENGTH = 200
+    MAX_LENGTH = 200
     photo: str
     text: str = None
     parse_mode: str = ParseMode.MARKDOWN
