@@ -29,6 +29,14 @@ class PhotoMessage(Message):
     inline_keyboard: Iterable[Iterable[dict]] | Iterable[Iterable[InlineKeyboardButton]] = None
     disable_notification: bool = False
 
+class VideoMessage(Message):
+    MAX_LENGTH = 200
+    video: str
+    text: str = None
+    parse_mode: str = ParseMode.MARKDOWN
+    inline_keyboard: Iterable[Iterable[dict]] | Iterable[Iterable[InlineKeyboardButton]] = None
+    disable_notification: bool = False
+
 class ParserModel(ABC):
 
     def __init__(self, config):
