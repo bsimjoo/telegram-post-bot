@@ -26,13 +26,11 @@ class HandlersDecorator(object):
             return func
         return wrapper
 
-def Auth(authorized: list):
+def Auth(authorized: callable):
     def wrapper(func):
         @wraps(func)
         def wrapped(update: Update, context: CallbackContext):
-            print(authorized())
             user = update.message.from_user
-            print(user.id)
             if user.id not in authorized():
                 update.message.reply_text("You are not authorized to use this command.")
                 return
