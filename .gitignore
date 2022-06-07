@@ -129,7 +129,7 @@ dmypy.json
 .pyre/
 
 #custom
-vscode/
+.vscode/
 config.json
 *.sqlite
 *.db
