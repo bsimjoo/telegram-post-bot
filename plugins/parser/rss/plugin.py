@@ -3,66 +3,93 @@ from numpy import iterable
 from peewee import *
 from plugins.parser.model import *
 from logging import getLogger
-import feedparser
+import feedparser, requests
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup as Soup
 from telegram import ParseMode
-import requests
+from time import mktime,struct_time
+from datetime import datetime
 
+def convert_date(struct:struct_time):
+        return datetime.fromtimestamp(mktime(struct))
+
+db_proxy = DatabaseProxy()
 class RSS_reader_Data(Model):
     last_post_date = DateTimeField(null=True)
-    source = CharField() # this will use to check if source changed or not
+    source = CharField(null=True) # this will use to check if source changed or not
 
     class Meta:
-        database = DatabaseProxy()
+        database = db_proxy
         db_table = 'rss_reader_data'
 
+db_table = RSS_reader_Data
 class Parser(ParserModel):
     def __init__(self, config):
         self.config = config
         self.logger = getLogger('RSS-reader')
         self.logger.info('Initializing RSS reader plugin...')
-        self.properties = RSS_reader_Data.get_or_create()
-        if self.properties.source != self.config['source']:
-            self.logger.info('Source changed, updating...')
-            self.properties.source = self.config['source']
-            self.properties.last_post_date = None
-            self.properties.save()
+        self.properties = RSS_reader_Data.get_or_create(source=self.config['source'])[0]
+        if self.config.get('check-host',True):
+            self.logger.debug(f"checking hostname change. properties:{urlparse(self.properties.source).hostname} == config:{urlparse(self.config['source']).hostname}")
+            if urlparse(self.properties.source).hostname != urlparse(self.config['source']).hostname:
+                self.logger.info('Source changed, updating...')
+                self.logger.warning('When source changes or bot runs for the first time it just saves the last post date and does not send any post to subscribers.')
+                self.properties.source = self.config['source']
+                self.properties.last_post_date = None
+                self.properties.save()
+        else:
+            self.logger.debug('check-host skipped')
 
-    @property
-    def db_table(self):
-        return RSS_reader_Data
-
-    def new_posts(self) -> iterable[Message]:
+    def new_posts(self):
         self.logger.info("Getting new posts...")
-        feeds = feedparser.parse(self.properties.source)
+        req = requests.get(self.properties.source)
+        feeds = feedparser.parse(req.content)
         if feeds.bozo == 1:
             self.logger.error("Error: %s", feeds.bozo_exception)
             return
-        if feeds.status != 200:
-            self.logger.error("Error: %s", feeds.status)
+        if req.status_code != 200:
+            self.logger.error("Error: %d", req.status)
             return
         if not iterable(feeds.entries):
-            self.logger.error("Error: No entries found")
+            self.logger.error("Error: No entry found")
             return
+        check_date = self.config.get('check-date',True)     # This config is useful for debug
+
+        if self.properties.last_post_date is None and check_date:
+            self.properties.last_post_date = convert_date(max([e.published_parsed for e in feeds.entries]))
+            self.properties.save()
+            if check_date:
+                # at default it will return here, but not when check-date is False
+                return
+        messages = list()
         for entry in feeds.entries:
-            if self.properties.last_post_date is None:
+            if check_date:
+                # if check-date is False Always send all posts
+                if entry.published_parsed <= self.properties.last_post_date:
+                    continue
                 self.properties.last_post_date = entry.published_parsed
                 self.properties.save()
-            elif entry.published_parsed > self.properties.last_post_date:
-                self.properties.last_post_date = entry.published_parsed
-                self.properties.save()
-                yield self.render_post(entry)
+            messages.extend(self.render_post(entry))
+        return messages
+
+    # TAG: ATTRIBUTE(S). attribute could be None | list | str | tuple
+    # tag:None -> The tag should not have any attribute (attributes will be omitted)
+    # tag:list -> The tag can omit these attribute(s), but other attributes will be omitted
+    # tag:str|tuple -> The tag should have this attribute(s) and tags without them will be omitted
+    #
+    # str is a shortened type for tuples, at next line all str will be converted to tuples ( (attrib,) syntax is so ugly! )
 
     SAFE_TAGS_ATTRS = {
-        'a': ['href'],'b':[],'strong':[],'i':[],'em':[],'code':[],'s':[],'strike':[],'del':[],'u':[],'pre':['language'],'img':['src'],'video':['src'],'source':['src']
+        'a': 'href','b':None,'strong':None,'i':None,'em':None,'code':None,'s':None,'strike':None,'del':None,'u':None,'pre':['language'],'img':'src','video':'src','source':'src'
     }
 
-    def render_post(self, post) -> iterable[Message]:
+    SAFE_TAGS_ATTRS = {x:((y,) if isinstance(y,str) else y) for x,y in SAFE_TAGS_ATTRS.items()} # convert all str attributes to tuples
+
+    def render_post(self, post):
         messages = []
-        contents = [c for c in post.content if c.type == 'text/html'] or [c for c in post.content if c.type == 'text/plain']
-        if not contents:
+        content = post.summary if 'summary' in post else post.content[0].value
+        if not content:
             return []
-        content = contents[0].value
 
         body = self.purge_html(content)
         medias = list(body('img'))+list(body('video'))
@@ -80,11 +107,11 @@ class Parser(ParserModel):
                 if before:
                     if first:
                         before, broken = self.summarize(Soup(before, 'html.parser'), TextMessage.MAX_LENGTH)
-                        messages.append(TextMessage(before,ParseMode.HTML))
+                        messages.append(TextMessage(str(before),ParseMode.HTML))
                         first = False
                     else:
                         before, broken = self.summarize(Soup(before, 'html.parser'), PhotoMessage.MAX_LENGTH)
-                        messages[-1].text = before
+                        messages[-1].text = str(before)
                 if broken:
                     # if last message is broken and has read more so stop adding more messages
                     break
@@ -113,7 +140,7 @@ class Parser(ParserModel):
         else:
             before, broken = self.summarize(body, TextMessage.MAX_LENGTH)
             if before:
-                messages.append(TextMessage(before,ParseMode.HTML))
+                messages.append(TextMessage(str(before),ParseMode.HTML))
 
         if len(messages) > 0:
             last_message = messages[-1]
@@ -121,6 +148,8 @@ class Parser(ParserModel):
                 last_message.inline_keyboard.append([InlineKeyboardButton('Read more',url=post.link)])
             else:
                 last_message.inline_keyboard = [[InlineKeyboardButton('Read more',url=post.link)]]
+        
+        return messages
 
     def purge_html(self, html:str):
         """
@@ -142,10 +171,16 @@ class Parser(ParserModel):
                     tag.replace_with(''.join(map(str,tag.contents)))
                 else:
                     self.logger.debug('tag %s is safe',tag.name)
-                    for attr in tag.attrs:
-                        if attr not in self.SAFE_TAGS_ATTRS[tag.name]:
-                            self.logger.debug('removing attribute %s from tag %s',attr,tag.name)
-                            del tag[attr]
+                    attr = self.SAFE_TAGS_ATTRS[tag.name]
+                    if attr is None:
+                        tag.attrs.clear()
+                    elif isinstance(attr, tuple):
+                        if all(a in tag.attrs for a in attr):
+                            tag.attrs={a:tag[a] for a in attr}
+                        else:
+                            tag.replace_with(''.join(map(str,tag.contents)))
+                    elif isinstance(attr, list):
+                        tag.attrs = {a:tag[a] for a in attr if a in tag.attrs}
             else:
                 self.logger.debug('not changing: %s',tag.string)
         return children
@@ -176,4 +211,4 @@ class Parser(ParserModel):
 
     def last_post(self):
         self.logger.info("Getting last post...")
-        ...
+        raise NotImplemented() #TODO: Implement last_post

@@ -8,11 +8,14 @@ from telegram.ext import Updater, Handler, CallbackContext
 from colored_log import ColoredLog
 from os.path import exists, join as path_join
 from decorators import HandlersDecorator, Auth
+from threading import Timer
+
+from plugins.parser.model import ParserModel ,MessageModel, TextMessage, PhotoMessage, VideoMessage
 
 # Configure logger
 CONFIG_FILE = "config.json" if exists("config.json") else "config.default.json"
 
-config = json.load(open(CONFIG_FILE))
+config:dict = json.load(open(CONFIG_FILE))
 logFormatter = logging.Formatter("%(asctime)s  %(name)-12.12s L%(lineno)-4.4d  %(levelname)-7.7s: %(message)s")
 handlers = []
 if log_dir:=config.get('log-dir'):
@@ -25,13 +28,13 @@ handlers.append(consoleHandler)
 level = logging._nameToLevel.get(config.get('log-level','INFO').upper(),logging.INFO)
 logging.basicConfig(level=level, handlers=handlers)
 logger = logging.getLogger('Telegram-post-bot')
+DEBUG = config.get('debug',False)       #didn't used
 
 # ===========================
 # Database
 # ===========================
 
 db_file = config.get('database', 'database.sqlite')
-db_exists = exists(db_file)
 db = SqliteDatabase(db_file)
 
 class Admin(Model):
@@ -59,35 +62,39 @@ class Chatdb(Model):
         database = db
 
 class BotData(Model):
-    interval = IntegerField(default=0)
+    interval = IntegerField(default=120)
     super_admin_id = IntegerField(null=True)
 
     class Meta:
         database = db
 
-db.connect()
-if not db_exists:
-    db.create_tables([Admin, Chatdb, BotData])
-
 # ===========================
-# Parser plugins
+# Import parser plugins
 # ===========================
 cfg_parser = config['parser']
 logger.info("Loading parser (%s) plugin...", cfg_parser)
 parser_config = config['parser-config']
-parser_module = importlib.import_module(path_join('plugins', cfg_parser, 'plugin'))
+parser_module = importlib.import_module('.'.join(['plugins','parser', cfg_parser, 'plugin']))
 parser_db_table = parser_module.db_table
 logger.info("initlizing parser database...")
 parser_module.db_proxy.initialize(db)
-parser_module.db_proxy.connect()
+
+db.connect()
+for table in (Admin, Chatdb, BotData):
+    if not db.table_exists(table):
+        db.create_tables([table])
 if not db.table_exists(parser_db_table):
-    parser_module.db_proxy.create_tables([parser_db_table])
-logger.info("initlizing parser...")
-parser = parser_module.Parser(parser_config)
+    db.create_tables([parser_db_table])
+
+def settings():
+    return BotData.get_or_create()[0]
 
 # ===========================
 # Telegram Bot
 # ===========================
+logger.info("initlizing parser...")
+parser:ParserModel = parser_module.Parser(parser_config)
+
 if 'proxy-url' in config:
     updater = Updater(token=config['token'], use_context=True, request_kwargs={'proxy_url': config['proxy-url']})
 else:
@@ -97,6 +104,35 @@ decorators = HandlersDecorator(updater.dispatcher)
 
 def admins_list():
     return [admin.id for admin in Admin.select()]
+
+def send_message(message:MessageModel, chat_id:int):
+    if isinstance(message,TextMessage):
+        return updater.bot.send_message(chat_id=chat_id,**message.to_dict())
+    elif isinstance(message,PhotoMessage):
+        return updater.bot.send_photo(chat_id=chat_id, **message.to_dict())
+    elif isinstance(message,VideoMessage):
+        return updater.bot.send_video(chat_id=chat_id, **message.to_dict())
+    updater.bot.send_message()
+
+def send_new_posts():
+    logger.debug("Sending new posts...")
+    messages = parser.new_posts()
+    if messages:
+        logger.info("got %d messages", len(messages))
+        for chat in Chatdb.select().where(Chatdb.active == True):
+            logger.info("Sending messages to %s", chat.title)
+            for message in messages:
+                send_message(message, chat.id)
+    else:
+        logger.debug("No new posts")
+
+def check_new_posts():
+    logger.debug("Checking new posts...")
+    send_new_posts()
+    logger.debug("setting timer...")
+    timer = Timer(settings().interval, check_new_posts)
+    timer.start()
+    logger.debug("timer set for %d seconds", settings().interval)
 
 @decorators.CommandHandler
 def start(update: Update, context: CallbackContext):
@@ -131,4 +167,5 @@ def echo(update: Update, context: CallbackContext):
     update.message.reply_text(update.message.text)
 
 updater.start_polling()
+check_new_posts()
 updater.idle()
