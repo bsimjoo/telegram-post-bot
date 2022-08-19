@@ -1,6 +1,13 @@
 {
-    "token": "TOKEN",
-    "proxy_url": null,
-    "log-level": "info",
-    "database": "database.sqlite"
+    "token": "Token",
+    //"proxy-url": "socks5h://localhost:9090",
+    "log-level": "debug",
+    //"debug": true,
+    "parser": "rss",
+    "parser-config": {
+        "source": "https://pcworms.ir/rss2",
+        //"check-date": false, // just for debugging
+        //"check-host": false, // just for debugging
+        "post-template": "new post: <a href=\"{feed[link]}\">{feed[title]}</a>\n\n{feed[content]}"
+    }
 }

@@ -87,7 +87,17 @@ class Parser(ParserModel):
 
     def render_post(self, post):
         messages = []
-        content = post.summary if 'summary' in post else post.content[0].value
+        template = self.config.get('post-template');
+        feed = {
+            "title":post.title,
+            "content":post.content[0].value,
+            "link":post.link
+        }
+        try:
+            content = template.format(feed = feed)
+        except Exception as e:
+            self.logger.error(f"error while trying to format the post: {type(e)}:{str(e)}")
+            return []
         if not content:
             return []
 
@@ -158,7 +168,8 @@ class Parser(ParserModel):
 
         soup = Soup(html, 'html.parser')
         self.logger.debug('purging html...')
-        return Soup(''.join(self.__purge_tag_rec(soup.contents)), 'html.parser')
+        poor_html = self.__purge_tag_rec(soup.contents)
+        return Soup(poor_html, 'html.parser')
 
     def __purge_tag_rec(self, children):    #recursive tag purging
         self.logger.debug('children: %s',repr(children))
@@ -183,7 +194,7 @@ class Parser(ParserModel):
                         tag.attrs = {a:tag[a] for a in attr if a in tag.attrs}
             else:
                 self.logger.debug('not changing: %s',tag.string)
-        return children
+        return ''.join(map(str,children))
 
     def summarize(self, post_content:Soup, max_length = TextMessage.MAX_LENGTH, read_more = '...'):
         trim = len(read_more)

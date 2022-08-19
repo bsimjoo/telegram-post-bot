@@ -1,5 +1,5 @@
 import logging
-import json
+import jstyleson
 import importlib
 from peewee import *
 from logging.handlers import TimedRotatingFileHandler
@@ -15,7 +15,7 @@ from plugins.parser.model import ParserModel ,MessageModel, TextMessage, PhotoMe
 # Configure logger
 CONFIG_FILE = "config.json" if exists("config.json") else "config.default.json"
 
-config:dict = json.load(open(CONFIG_FILE))
+config:dict = jstyleson.load(open(CONFIG_FILE))
 logFormatter = logging.Formatter("%(asctime)s  %(name)-12.12s L%(lineno)-4.4d  %(levelname)-7.7s: %(message)s")
 handlers = []
 if log_dir:=config.get('log-dir'):
