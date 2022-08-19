@@ -13,7 +13,7 @@ from threading import Timer
 from plugins.parser.model import ParserModel ,MessageModel, TextMessage, PhotoMessage, VideoMessage
 
 # Configure logger
-CONFIG_FILE = "config.json" if exists("config.json") else "config.default.json"
+CONFIG_FILE = "config.jsonc" if exists("config.jsonc") else "config.default.jsonc"
 
 config:dict = jstyleson.load(open(CONFIG_FILE))
 logFormatter = logging.Formatter("%(asctime)s  %(name)-12.12s L%(lineno)-4.4d  %(levelname)-7.7s: %(message)s")
