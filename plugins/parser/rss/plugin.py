@@ -25,7 +25,7 @@ class RSS_reader_Data(Model):
 db_table = RSS_reader_Data
 class Parser(ParserModel):
     def __init__(self, config):
-        self.config = config
+        super().__init__(config)
         self.logger = getLogger('RSS-reader')
         self.logger.info('Initializing RSS reader plugin...')
         self.properties = RSS_reader_Data.get_or_create(source=self.config['source'])[0]
@@ -168,7 +168,7 @@ class Parser(ParserModel):
 
         soup = Soup(html, 'html.parser')
         self.logger.debug('purging html...')
-        poor_html = self.__purge_tag_rec(soup.contents)
+        poor_html = ''.join(map(str,self.__purge_tag_rec(soup.contents)))
         return Soup(poor_html, 'html.parser')
 
     def __purge_tag_rec(self, children):    #recursive tag purging
@@ -194,7 +194,7 @@ class Parser(ParserModel):
                         tag.attrs = {a:tag[a] for a in attr if a in tag.attrs}
             else:
                 self.logger.debug('not changing: %s',tag.string)
-        return ''.join(map(str,children))
+        return children
 
     def summarize(self, post_content:Soup, max_length = TextMessage.MAX_LENGTH, read_more = '...'):
         trim = len(read_more)

@@ -66,6 +66,7 @@ class VideoMessage(MessageModel):
 
 class ParserModel(ABC):
 
+    @abstractmethod
     def __init__(self, config):
         self.config = config
 

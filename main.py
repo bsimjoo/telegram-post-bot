@@ -11,6 +11,7 @@ from decorators import HandlersDecorator, Auth
 from threading import Timer
 
 from plugins.parser.model import ParserModel ,MessageModel, TextMessage, PhotoMessage, VideoMessage
+from plugins.parser.rss.plugin import Parser
 
 # Configure logger
 CONFIG_FILE = "config.jsonc" if exists("config.jsonc") else "config.default.jsonc"
@@ -94,6 +95,9 @@ def settings():
 # ===========================
 logger.info("initlizing parser...")
 parser:ParserModel = parser_module.Parser(parser_config)
+if not issubclass(type(parser),ParserModel):
+    logger.error("Plugin is not a subclass of ParserModel.")
+    logger.warning("A non-standard class may cause an error")
 
 if 'proxy-url' in config:
     updater = Updater(token=config['token'], use_context=True, request_kwargs={'proxy_url': config['proxy-url']})
