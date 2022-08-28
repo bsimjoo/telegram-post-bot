@@ -130,6 +130,6 @@ dmypy.json
 
 #custom
 .vscode/
-config.json
+config.jsonc
 *.sqlite
 *.db
