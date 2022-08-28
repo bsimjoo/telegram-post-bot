@@ -100,6 +100,7 @@ if not issubclass(type(parser),ParserModel):
     logger.warning("A non-standard class may cause an error")
 
 if 'proxy-url' in config:
+    # TODO: add doc for PySocks, it is required just if user is using socks proxy
     updater = Updater(token=config['token'], use_context=True, request_kwargs={'proxy_url': config['proxy-url']})
 else:
     updater = Updater(token=config.get('telegram-token'), use_context=True)

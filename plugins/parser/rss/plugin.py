@@ -1,5 +1,4 @@
 # RSS reader plugin for telegram post bot
-from numpy import iterable
 from peewee import *
 from plugins.parser.model import *
 from logging import getLogger
@@ -7,7 +6,7 @@ import feedparser, requests
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup as Soup
 from telegram import ParseMode
-from time import mktime,struct_time
+from time import mktime, sleep,struct_time
 from datetime import datetime
 
 def convert_date(struct:struct_time):
@@ -44,13 +43,13 @@ class Parser(ParserModel):
         self.logger.info("Getting new posts...")
         req = requests.get(self.properties.source)
         feeds = feedparser.parse(req.content)
+        if req.status_code != 200:
+            self.logger.error("Error: %d", req.status_code)
+            return
         if feeds.bozo == 1:
             self.logger.error("Error: %s", feeds.bozo_exception)
             return
-        if req.status_code != 200:
-            self.logger.error("Error: %d", req.status)
-            return
-        if not iterable(feeds.entries):
+        if not feeds.entries:
             self.logger.error("Error: No entry found")
             return
         check_date = self.config.get('check-date',True)     # This config is useful for debug
@@ -90,7 +89,7 @@ class Parser(ParserModel):
         template = self.config.get('post-template');
         feed = {
             "title":post.title,
-            "content":post.content[0].value,
+            "content":post.description,     # TODO: make it soft coded!
             "link":post.link
         }
         try:
