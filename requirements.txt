@@ -3,3 +3,4 @@ peewee
 feedparser
 bs4
 jstyleson
+colorama
